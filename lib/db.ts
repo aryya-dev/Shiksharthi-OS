@@ -4,7 +4,7 @@ import {
   Student, Faculty, Subject, Chapter, ChapterTopic, 
   LessonPlan, ClassLog, Attendance, Doubt, Feedback, 
   Exam, ExamResult, ParentInteraction, UserProfile, UserRole,
-  AttendanceStatus, DoubtStatus
+  AttendanceStatus, DoubtStatus, StudentFee
 } from '../types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -76,6 +76,26 @@ export const dbClient = {
       }
       const db = getLocalDB();
       db.students.push(newStudent);
+      
+      // Auto-calculate discount and create local mock fee
+      let discountPct = 0;
+      const status = student.scholarship_status || '';
+      if (status.includes('100')) discountPct = 100;
+      else if (status.includes('75')) discountPct = 75;
+      else if (status.includes('50')) discountPct = 50;
+      else if (status.includes('25')) discountPct = 25;
+      else if (status.includes('10')) discountPct = 10;
+      
+      const discountAmt = (28000 * discountPct) / 100;
+      if (!db.studentFees) db.studentFees = [];
+      db.studentFees.push({
+        id: `fee_${Date.now()}`,
+        student_id: newStudent.id,
+        total_amount: 28000,
+        scholarship_discount: discountAmt,
+        amount_paid: 0
+      });
+      
       saveLocalDB(db);
       return newStudent;
     },
@@ -89,6 +109,33 @@ export const dbClient = {
       const index = db.students.findIndex(s => s.id === id);
       if (index === -1) throw new Error('Student not found');
       db.students[index] = { ...db.students[index], ...updates };
+      
+      // Update local mock fee discount if scholarship changes
+      if (updates.scholarship_status !== undefined) {
+        let discountPct = 0;
+        const status = updates.scholarship_status || '';
+        if (status.includes('100')) discountPct = 100;
+        else if (status.includes('75')) discountPct = 75;
+        else if (status.includes('50')) discountPct = 50;
+        else if (status.includes('25')) discountPct = 25;
+        else if (status.includes('10')) discountPct = 10;
+        
+        const discountAmt = (28000 * discountPct) / 100;
+        if (!db.studentFees) db.studentFees = [];
+        const feeIdx = db.studentFees.findIndex(f => f.student_id === id);
+        if (feeIdx !== -1) {
+          db.studentFees[feeIdx].scholarship_discount = discountAmt;
+        } else {
+          db.studentFees.push({
+            id: `fee_${Date.now()}`,
+            student_id: id,
+            total_amount: 28000,
+            scholarship_discount: discountAmt,
+            amount_paid: 0
+          });
+        }
+      }
+      
       saveLocalDB(db);
       return db.students[index];
     }
@@ -447,6 +494,60 @@ export const dbClient = {
       db.parentInteractions.push(newInteraction);
       saveLocalDB(db);
       return newInteraction;
+    }
+  },
+
+  studentFees: {
+    list: async (): Promise<StudentFee[]> => {
+      if (isSupabaseConfigured && supabase) {
+        const { data } = await supabase.from('student_fees').select('*');
+        return data || [];
+      }
+      return getLocalDB().studentFees || [];
+    },
+    update: async (studentId: string, updates: Partial<StudentFee>): Promise<StudentFee> => {
+      if (isSupabaseConfigured && supabase) {
+        const { data, error } = await supabase
+          .from('student_fees')
+          .update(updates)
+          .eq('student_id', studentId)
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      }
+      const db = getLocalDB();
+      if (!db.studentFees) db.studentFees = [];
+      let index = db.studentFees.findIndex(f => f.student_id === studentId);
+      if (index === -1) {
+        const newFee: StudentFee = {
+          id: `fee_${Date.now()}`,
+          student_id: studentId,
+          total_amount: 28000,
+          scholarship_discount: 0,
+          amount_paid: 0,
+          ...updates
+        };
+        db.studentFees.push(newFee);
+        saveLocalDB(db);
+        return newFee;
+      }
+      db.studentFees[index] = { ...db.studentFees[index], ...updates };
+      saveLocalDB(db);
+      return db.studentFees[index];
+    },
+    create: async (fee: Omit<StudentFee, 'id'>): Promise<StudentFee> => {
+      const newFee = { ...fee, id: `fee_${Date.now()}` } as StudentFee;
+      if (isSupabaseConfigured && supabase) {
+        const { data, error } = await supabase.from('student_fees').insert([fee]).select().single();
+        if (error) throw error;
+        return data;
+      }
+      const db = getLocalDB();
+      if (!db.studentFees) db.studentFees = [];
+      db.studentFees.push(newFee);
+      saveLocalDB(db);
+      return newFee;
     }
   }
 };

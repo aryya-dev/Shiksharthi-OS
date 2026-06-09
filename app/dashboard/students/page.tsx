@@ -105,8 +105,9 @@ export default function StudentsCRMPage() {
       setNewStudParent('');
       setNewStudScholarship('None');
       loadCRMData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to add student:', error);
+      alert(`Failed to register student. Ensure database schema is applied and RLS is disabled. Error: ${error?.message || JSON.stringify(error)}`);
     }
   };
 

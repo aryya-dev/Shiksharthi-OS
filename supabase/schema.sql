@@ -231,3 +231,107 @@ CREATE INDEX IF NOT EXISTS idx_doubts_student ON doubts(student_id);
 CREATE INDEX IF NOT EXISTS idx_doubts_status ON doubts(status);
 CREATE INDEX IF NOT EXISTS idx_exam_results_student ON exam_results(student_id);
 CREATE INDEX IF NOT EXISTS idx_parent_interactions_student ON parent_interactions(student_id);
+
+-- 17. Student Fees Table (For Monitoring Payments)
+CREATE TABLE IF NOT EXISTS student_fees (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_id UUID UNIQUE REFERENCES students(id) ON DELETE CASCADE,
+    total_amount NUMERIC NOT NULL DEFAULT 28000,
+    scholarship_discount NUMERIC NOT NULL DEFAULT 0,
+    amount_paid NUMERIC NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Trigger to automatically create a student_fees record when a new student is registered
+CREATE OR REPLACE FUNCTION public.handle_new_student_fee()
+RETURNS TRIGGER AS $$
+DECLARE
+    discount_pct NUMERIC := 0;
+    discount_amt NUMERIC := 0;
+BEGIN
+    -- Parse scholarship percentage from scholarship_status (e.g., "50% Merit" -> 50, "None" -> 0, "100%" -> 100)
+    IF NEW.scholarship_status ILIKE '%100%' THEN
+        discount_pct := 100;
+    ELSIF NEW.scholarship_status ILIKE '%75%' THEN
+        discount_pct := 75;
+    ELSIF NEW.scholarship_status ILIKE '%50%' THEN
+        discount_pct := 50;
+    ELSIF NEW.scholarship_status ILIKE '%25%' THEN
+        discount_pct := 25;
+    ELSIF NEW.scholarship_status ILIKE '%10%' THEN
+        discount_pct := 10;
+    ELSE
+        discount_pct := 0;
+    END IF;
+
+    discount_amt := (28000 * discount_pct) / 100;
+
+    INSERT INTO public.student_fees (student_id, total_amount, scholarship_discount, amount_paid)
+    VALUES (NEW.id, 28000, discount_amt, 0);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_student_created
+    AFTER INSERT ON public.students
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_student_fee();
+
+-- Trigger to automatically update the scholarship discount when student is updated
+CREATE OR REPLACE FUNCTION public.handle_update_student_fee()
+RETURNS TRIGGER AS $$
+DECLARE
+    discount_pct NUMERIC := 0;
+    discount_amt NUMERIC := 0;
+BEGIN
+    IF NEW.scholarship_status IS DISTINCT FROM OLD.scholarship_status THEN
+        IF NEW.scholarship_status ILIKE '%100%' THEN
+            discount_pct := 100;
+        ELSIF NEW.scholarship_status ILIKE '%75%' THEN
+            discount_pct := 75;
+        ELSIF NEW.scholarship_status ILIKE '%50%' THEN
+            discount_pct := 50;
+        ELSIF NEW.scholarship_status ILIKE '%25%' THEN
+            discount_pct := 25;
+        ELSIF NEW.scholarship_status ILIKE '%10%' THEN
+            discount_pct := 10;
+        ELSE
+            discount_pct := 0;
+        END IF;
+
+        discount_amt := (28000 * discount_pct) / 100;
+
+        UPDATE public.student_fees 
+        SET scholarship_discount = discount_amt,
+            updated_at = NOW()
+        WHERE student_id = NEW.id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_student_updated
+    AFTER UPDATE ON public.students
+    FOR EACH ROW EXECUTE FUNCTION public.handle_update_student_fee();
+
+-- Indexes for student_fees
+CREATE INDEX IF NOT EXISTS idx_student_fees_student ON student_fees(student_id);
+
+-- Disable Row Level Security (RLS) on all tables to ensure anonymous client inserts/updates succeed
+ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE faculty DISABLE ROW LEVEL SECURITY;
+ALTER TABLE subjects DISABLE ROW LEVEL SECURITY;
+ALTER TABLE students DISABLE ROW LEVEL SECURITY;
+ALTER TABLE chapters DISABLE ROW LEVEL SECURITY;
+ALTER TABLE chapter_topics DISABLE ROW LEVEL SECURITY;
+ALTER TABLE lesson_plans DISABLE ROW LEVEL SECURITY;
+ALTER TABLE classes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance DISABLE ROW LEVEL SECURITY;
+ALTER TABLE doubts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE feedback DISABLE ROW LEVEL SECURITY;
+ALTER TABLE exams DISABLE ROW LEVEL SECURITY;
+ALTER TABLE exam_chapters DISABLE ROW LEVEL SECURITY;
+ALTER TABLE exam_results DISABLE ROW LEVEL SECURITY;
+ALTER TABLE parent_interactions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications DISABLE ROW LEVEL SECURITY;
+ALTER TABLE student_fees DISABLE ROW LEVEL SECURITY;

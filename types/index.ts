@@ -41,6 +41,16 @@ export interface Student {
   enrollment_date?: string;
 }
 
+export interface StudentFee {
+  id: string;
+  student_id: string;
+  total_amount: number;
+  scholarship_discount: number;
+  amount_paid: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Chapter {
   id: string;
   subject_id: string;

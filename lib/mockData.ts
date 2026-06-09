@@ -1,7 +1,8 @@
 import { 
   Student, Faculty, Subject, Chapter, ChapterTopic, 
   LessonPlan, ClassLog, Attendance, Doubt, Feedback, 
-  Exam, ExamResult, ParentInteraction, UserProfile 
+  Exam, ExamResult, ParentInteraction, UserProfile,
+  StudentFee
 } from '../types';
 
 // Initial Profiles
@@ -394,6 +395,16 @@ export const mockExamResults: ExamResult[] = [
   { id: 'er_05', exam_id: 'ex_01', student_id: 'stud_06', marks_obtained: 31.00, percentile: 68.00, remarks: 'Did not complete circular motion derivation.' }
 ];
 
+// Student Fees
+export const mockStudentFees: StudentFee[] = [
+  { id: 'fee_01', student_id: 'stud_01', total_amount: 28000, scholarship_discount: 14000, amount_paid: 10000 },
+  { id: 'fee_02', student_id: 'stud_02', total_amount: 28000, scholarship_discount: 0, amount_paid: 28000 },
+  { id: 'fee_03', student_id: 'stud_03', total_amount: 28000, scholarship_discount: 7000, amount_paid: 15000 },
+  { id: 'fee_04', student_id: 'stud_04', total_amount: 28000, scholarship_discount: 0, amount_paid: 0 },
+  { id: 'fee_05', student_id: 'stud_05', total_amount: 28000, scholarship_discount: 28000, amount_paid: 0 },
+  { id: 'fee_06', student_id: 'stud_06', total_amount: 28000, scholarship_discount: 0, amount_paid: 14000 }
+];
+
 export interface LocalDBState {
   profiles: UserProfile[];
   faculty: Faculty[];
@@ -409,6 +420,7 @@ export interface LocalDBState {
   parentInteractions: ParentInteraction[];
   exams: Exam[];
   examResults: ExamResult[];
+  studentFees: StudentFee[];
 }
 
 // LocalStorage helpers to simulate database interactions
@@ -428,7 +440,8 @@ export const getLocalDB = (): LocalDBState => {
       doubts: mockDoubts,
       parentInteractions: mockParentInteractions,
       exams: mockExams,
-      examResults: mockExamResults
+      examResults: mockExamResults,
+      studentFees: mockStudentFees
     };
   }
 
@@ -451,7 +464,8 @@ export const getLocalDB = (): LocalDBState => {
     doubts: load('doubts', mockDoubts),
     parentInteractions: load('parentInteractions', mockParentInteractions),
     exams: load('exams', mockExams),
-    examResults: load('examResults', mockExamResults)
+    examResults: load('examResults', mockExamResults),
+    studentFees: load('studentFees', mockStudentFees)
   };
 };
 

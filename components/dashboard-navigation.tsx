@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, CalendarRange, ClipboardList, Sparkles, 
   Users, GraduationCap, HelpCircle, Award, 
-  Menu, X, Bell, UserCheck, Search, ShieldAlert
+  Menu, X, Bell, UserCheck, Search, ShieldAlert, CreditCard
 } from 'lucide-react';
 import { dbClient, isSupabaseConfigured, supabase } from '@/lib/db';
 import { UserRole, UserProfile } from '@/types';
@@ -24,6 +24,7 @@ const navItems: NavItem[] = [
   { name: 'Class Logs', href: '/dashboard/classes', icon: ClipboardList, roles: ['ADMIN', 'SPOC', 'FACULTY'] },
   { name: 'AI Curriculum', href: '/dashboard/curriculum', icon: Sparkles, roles: ['ADMIN', 'FACULTY'] },
   { name: 'Students & CRM', href: '/dashboard/students', icon: Users, roles: ['ADMIN', 'SPOC'] },
+  { name: 'Fees Tracker', href: '/dashboard/fees', icon: CreditCard, roles: ['ADMIN', 'SPOC'] },
   { name: 'Faculty Registry', href: '/dashboard/faculty', icon: GraduationCap, roles: ['ADMIN', 'SPOC'] },
   { name: 'Doubt Tracker', href: '/dashboard/doubts', icon: HelpCircle, roles: ['ADMIN', 'SPOC', 'FACULTY'] },
   { name: 'Exams & Analytics', href: '/dashboard/exams', icon: Award, roles: ['ADMIN', 'SPOC', 'FACULTY'] }
