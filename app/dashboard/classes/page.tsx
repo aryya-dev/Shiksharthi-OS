@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ClipboardList, Plus, Calendar, Clock, BookOpen, 
-  Users, CheckCircle2, XCircle, AlertCircle, Save, ChevronRight, X 
+  Users, CheckCircle2, XCircle, AlertCircle, Save, ChevronRight, X, Copy, Download
 } from 'lucide-react';
 import { dbClient } from '@/lib/db';
 import { 
@@ -19,6 +19,7 @@ export default function ClassLogsPage() {
   const [topics, setTopics] = useState<ChapterTopic[]>([]);
   const [faculty, setFaculty] = useState<FacultyMember[]>([]);
   const [attendanceLogs, setAttendanceLogs] = useState<Attendance[]>([]);
+  const [selectedReportClass, setSelectedReportClass] = useState<ClassLog | null>(null);
 
   // Logging wizard state
   const [isLogging, setIsLogging] = useState(false);
@@ -35,6 +36,7 @@ export default function ClassLogsPage() {
   const [formRemarks, setFormRemarks] = useState('');
   const [formCoveredTopics, setFormCoveredTopics] = useState<string[]>([]);
   const [formAttendance, setFormAttendance] = useState<Record<string, { status: AttendanceStatus; remarks?: string }>>({});
+  const [formHomeworkDefaulters, setFormHomeworkDefaulters] = useState<string[]>([]);
 
   const loadClassesData = async () => {
     setLoading(true);
@@ -77,6 +79,228 @@ export default function ClassLogsPage() {
     return () => window.removeEventListener('role-change', loadClassesData);
   }, []);
 
+  const copyReportText = (cl: ClassLog) => {
+    const sub = subjects.find(s => s.id === cl.subject_id);
+    const ch = chapters.find(c => c.id === cl.chapter_id);
+
+    const classAtt = attendanceLogs.filter(a => a.class_id === cl.id);
+    const absentees = classAtt
+      .filter(a => a.status === 'ABSENT')
+      .map(a => students.find(s => s.id === a.student_id)?.name)
+      .filter(Boolean) as string[];
+
+    const hwDefaulters = (cl.homework_defaulters || [])
+      .map(id => students.find(s => s.id === id)?.name)
+      .filter(Boolean) as string[];
+
+    const absenteesText = absentees.length > 0 ? absentees.join(', ') : 'None';
+    const defaultersText = hwDefaulters.length > 0 ? hwDefaulters.join(', ') : 'None';
+
+    const text = `Date- ${formatDateOrdinal(cl.class_date)}
+${(sub?.grade_level || 'CLASS - 11').toUpperCase()} | SUB-${(sub?.name || 'PHYSICS').toUpperCase()}
+
+❌ ABSENTEE LIST:
+${absenteesText}
+
+⚠️ Homework Defaulters:
+${defaultersText}
+
+📚 Chapter Name:
+${(ch?.title || 'PRACTICE CLASS').toUpperCase()}
+
+✏️ HW:
+${cl.homework_assigned || 'None'}
+`;
+
+    navigator.clipboard.writeText(text);
+    alert('WhatsApp text report copied to clipboard!');
+  };
+
+  const downloadReportImage = (cl: ClassLog) => {
+    const sub = subjects.find(s => s.id === cl.subject_id);
+    const ch = chapters.find(c => c.id === cl.chapter_id);
+
+    const classAtt = attendanceLogs.filter(a => a.class_id === cl.id);
+    const absentees = classAtt
+      .filter(a => a.status === 'ABSENT')
+      .map(a => students.find(s => s.id === a.student_id)?.name)
+      .filter(Boolean) as string[];
+
+    const hwDefaulters = (cl.homework_defaulters || [])
+      .map(id => students.find(s => s.id === id)?.name)
+      .filter(Boolean) as string[];
+
+    // Rows calculation (at least 8 rows for empty slots matching image)
+    const rowCount = Math.max(absentees.length, hwDefaulters.length, 8);
+    const rowHeight = 40;
+    const headerHeight = 150;
+    const totalHeight = headerHeight + rowCount * rowHeight;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 800;
+    canvas.height = totalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Fill background (white)
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#000000';
+
+    // 1. Date Header (0, 0, 800, 50)
+    ctx.strokeRect(0, 0, 800, 50);
+    ctx.fillStyle = '#000000';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText(`Date- ${formatDateOrdinal(cl.class_date)}`, 400, 25);
+
+    // 2. Class & Subject Header (0, 50, 800, 50)
+    ctx.strokeRect(0, 50, 400, 50);
+    ctx.fillText((sub?.grade_level || 'CLASS - 11').toUpperCase(), 200, 75);
+
+    ctx.strokeRect(400, 50, 400, 50);
+    ctx.fillText(`SUB-${(sub?.name || 'PHYSICS').toUpperCase()}`, 600, 75);
+
+    // 3. Columns Header (0, 100, 800, 50)
+    ctx.fillStyle = '#f8fafc'; // slightly off-white header tint
+    ctx.fillRect(0, 100, 800, 50);
+    
+    ctx.fillStyle = '#000000';
+    ctx.strokeRect(0, 100, 200, 50);
+    ctx.fillText('ABSENTEE LIST', 100, 125);
+
+    ctx.strokeRect(200, 100, 200, 50);
+    ctx.fillText('Homework Defaulters', 300, 125);
+
+    ctx.strokeRect(400, 100, 200, 50);
+    ctx.fillText('Chapter Name', 500, 125);
+
+    ctx.strokeRect(600, 100, 200, 50);
+    ctx.fillText('HW', 700, 125);
+
+    // 4. Data Rows (Y starting from 150)
+    ctx.font = 'bold 16px sans-serif';
+    for (let i = 0; i < rowCount; i++) {
+      const currentY = 150 + i * rowHeight;
+
+      // Absentees
+      ctx.strokeRect(0, currentY, 200, rowHeight);
+      if (absentees[i]) {
+        ctx.fillStyle = '#dc2626'; // Bold red
+        ctx.fillText(absentees[i], 100, currentY + 20);
+      }
+
+      // Defaulters
+      ctx.strokeRect(200, currentY, 200, rowHeight);
+      if (hwDefaulters[i]) {
+        ctx.fillStyle = '#dc2626'; // Bold red
+        ctx.fillText(hwDefaulters[i], 300, currentY + 20);
+      }
+    }
+
+    // 5. Merged Columns (Chapter Name & HW)
+    const chY = 150;
+    const chHeight = rowCount * rowHeight;
+
+    // Chapter Name Merged Cell
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(400, chY, 200, chHeight);
+    ctx.strokeRect(400, chY, 200, chHeight);
+
+    ctx.fillStyle = '#000000';
+    ctx.font = 'bold 16px sans-serif';
+    wrapTextAndDraw(ctx, (ch?.title || 'PRACTICE CLASS').toUpperCase(), 500, chY + chHeight / 2, 180, 22);
+
+    // HW Merged Cell (spans all rows with gray fill)
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(600, chY, 200, chHeight);
+    ctx.strokeRect(600, chY, 200, chHeight);
+
+    ctx.fillStyle = '#000000';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    wrapTextAndDrawLeft(ctx, cl.homework_assigned || '', 615, chY + 15, 170, 20);
+
+    // Download PNG
+    const link = document.createElement('a');
+    link.download = `WhatsApp_Report_${cl.class_date}_${sub?.name || 'Class'}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+
+  const formatDateOrdinal = (dateStr: string) => {
+    try {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      const dayNum = date.getDate();
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const monthName = monthNames[date.getMonth()];
+      
+      let suffix = 'th';
+      if (dayNum === 1 || dayNum === 21 || dayNum === 31) suffix = 'st';
+      else if (dayNum === 2 || dayNum === 22) suffix = 'nd';
+      else if (dayNum === 3 || dayNum === 23) suffix = 'rd';
+      
+      return `${dayNum}${suffix} ${monthName} ${date.getFullYear()}`;
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
+  const wrapTextAndDraw = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = '';
+
+    for (let i = 0; i < words.length; i++) {
+      let testLine = currentLine + words[i] + ' ';
+      let metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && i > 0) {
+        lines.push(currentLine.trim());
+        currentLine = words[i] + ' ';
+      } else {
+        currentLine = testLine;
+      }
+    }
+    lines.push(currentLine.trim());
+
+    const totalHeight = lines.length * lineHeight;
+    let startY = y - totalHeight / 2 + lineHeight / 2;
+
+    lines.forEach(line => {
+      ctx.fillText(line, x, startY);
+      startY += lineHeight;
+    });
+  };
+
+  const wrapTextAndDrawLeft = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = '';
+
+    for (let i = 0; i < words.length; i++) {
+      let testLine = currentLine + words[i] + ' ';
+      let metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && i > 0) {
+        lines.push(currentLine.trim());
+        currentLine = words[i] + ' ';
+      } else {
+        currentLine = testLine;
+      }
+    }
+    lines.push(currentLine.trim());
+
+    let startY = y;
+    lines.forEach(line => {
+      ctx.fillText(line, x, startY);
+      startY += lineHeight;
+    });
+  };
+
   // Update chapters when form subject changes
   useEffect(() => {
     if (formSubjectId) {
@@ -97,6 +321,7 @@ export default function ClassLogsPage() {
     });
     setFormAttendance(initialAttendance);
     setFormCoveredTopics([]);
+    setFormHomeworkDefaulters([]);
     // Auto-assign faculty: if logged-in user is FACULTY, pin to them
     const activeUser = await dbClient.profiles.getCurrentUser();
     if (activeUser.role === 'FACULTY') {
@@ -138,6 +363,7 @@ export default function ClassLogsPage() {
         chapter_id: formChapterId || null,
         planned_topics: formCoveredTopics.map(tId => topics.find(t => t.id === tId)?.name || ''),
         actual_topics_covered: formCoveredTopics,
+        homework_defaulters: formHomeworkDefaulters,
         homework_assigned: formHomework,
         remarks: formRemarks
       };
@@ -151,8 +377,9 @@ export default function ClassLogsPage() {
       await dbClient.classes.create(payloadLog, attendanceList);
       setIsLogging(false);
       loadClassesData();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save class log:', err);
+      alert('Failed to save class log: ' + (err?.message || JSON.stringify(err) || err));
     }
   };
 
@@ -239,7 +466,16 @@ export default function ClassLogsPage() {
                           <span>Faculty: {fac?.name || 'Assigned Instructor'}</span>
                         </div>
                       </div>
-
+                      
+                      <button
+                        onClick={() => setSelectedReportClass(cl)}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-900/40 text-[10px] font-semibold transition-all-200 flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
+                      >
+                        <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24">
+                          <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.73-1.45L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.97-1.861-1.868-4.339-2.897-6.97-2.899-5.437 0-9.862 4.37-9.866 9.8-.001 2.028.531 4.008 1.547 5.768l-.993 3.623 3.71-.973zm11.238-6.103c-.301-.15-1.777-.878-2.052-.978-.276-.099-.476-.149-.676.15-.2.299-.775.978-.95 1.178-.175.199-.35.224-.651.075-1.127-.565-1.921-1.002-2.696-2.328-.201-.349-.201-.225.075-.499.251-.25.551-.649.626-.824.075-.175.038-.349-.019-.499-.057-.15-.476-1.146-.651-1.571-.171-.41-.344-.354-.476-.36l-.406-.008c-.14-.004-.37-.053-.564.159-.194.213-.741.724-.741 1.767s.758 2.049.864 2.193c.106.143 1.493 2.28 3.616 3.197.505.218.899.349 1.206.446.508.162.97.139 1.336.085.408-.06 1.777-.724 2.027-1.424.25-.699.25-1.3.175-1.424-.075-.124-.275-.199-.575-.349z"/>
+                        </svg>
+                        WhatsApp Report
+                      </button>
                     </div>
 
                     <div className="space-y-2">
@@ -469,6 +705,39 @@ export default function ClassLogsPage() {
                     </div>
                   </div>
 
+                  <div className="space-y-2 border-t border-dark-border pt-4">
+                    <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Homework Defaulters</h4>
+                    <p className="text-[9px] text-zinc-500">Select students who did not submit their homework today.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                      {students.map(s => {
+                        const isChecked = formHomeworkDefaulters.includes(s.id);
+                        return (
+                          <div 
+                            key={s.id}
+                            onClick={() => {
+                              setFormHomeworkDefaulters(prev =>
+                                prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id]
+                              );
+                            }}
+                            className={`p-2.5 rounded-lg border cursor-pointer transition-all-200 flex items-center justify-between ${
+                              isChecked
+                                ? 'bg-red-950/20 border-red-500/30 text-neon-rose font-semibold'
+                                : 'bg-zinc-900 border-dark-border text-zinc-350 hover:bg-zinc-800'
+                            }`}
+                          >
+                            <span className="text-xs">{s.name}</span>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              readOnly
+                              className="h-3.5 w-3.5 cursor-pointer accent-neon-rose"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div className="space-y-3 border-t border-dark-border pt-4">
                     <div className="space-y-1">
                       <label className="text-[10px] text-zinc-400 font-semibold uppercase">Homework Assignment</label>
@@ -527,6 +796,134 @@ export default function ClassLogsPage() {
                     Next <ChevronRight className="h-3.5 w-3.5" />
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WHATSAPP REPORT MODAL */}
+      {selectedReportClass && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-xl bg-dark-card border border-dark-border rounded-xl p-5 shadow-2xl space-y-4 relative">
+            <button 
+              onClick={() => setSelectedReportClass(null)}
+              className="absolute right-4 top-4 p-1 rounded bg-zinc-900 text-zinc-400 hover:text-white border border-dark-border cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                WhatsApp Report Generator
+              </h3>
+              <p className="text-[10px] text-zinc-500 mt-0.5">Preview and generate shareable media logs for WhatsApp</p>
+            </div>
+
+            {/* Preview Card */}
+            <div className="border border-dark-border/80 rounded-lg p-5 bg-zinc-950 max-h-[420px] overflow-y-auto relative shadow-inner">
+              <div className="bg-white text-black p-4 border border-black rounded-lg max-w-full overflow-x-auto">
+                <table className="w-full border-collapse border-2 border-black text-xs font-bold text-center">
+                  <tbody>
+                    {/* Row 1: Date */}
+                    <tr>
+                      <td colSpan={4} className="border-2 border-black p-2 bg-white text-sm font-extrabold text-center text-black">
+                        Date- {formatDateOrdinal(selectedReportClass.class_date)}
+                      </td>
+                    </tr>
+                    
+                    {/* Row 2: Class & Subject */}
+                    <tr>
+                      <td colSpan={2} className="border-2 border-black p-2 text-sm font-extrabold w-1/2 text-center text-black">
+                        {(subjects.find(s => s.id === selectedReportClass.subject_id)?.grade_level || 'CLASS - 11').toUpperCase()}
+                      </td>
+                      <td colSpan={2} className="border-2 border-black p-2 text-sm font-extrabold w-1/2 text-center text-black">
+                        SUB-{(subjects.find(s => s.id === selectedReportClass.subject_id)?.name || 'PHYSICS').toUpperCase()}
+                      </td>
+                    </tr>
+
+                    {/* Row 3: Headers */}
+                    <tr className="bg-slate-100 text-black">
+                      <td className="border-2 border-black p-2 w-1/4 text-center">ABSENTEE LIST</td>
+                      <td className="border-2 border-black p-2 w-1/4 text-center">Homework Defaulters</td>
+                      <td className="border-2 border-black p-2 w-1/4 text-center">Chapter Name</td>
+                      <td className="border-2 border-black p-2 w-1/4 text-center">HW</td>
+                    </tr>
+
+                    {/* Data Rows */}
+                    {(() => {
+                      const classAtt = attendanceLogs.filter(a => a.class_id === selectedReportClass.id);
+                      const absList = classAtt
+                        .filter(a => a.status === 'ABSENT')
+                        .map(a => students.find(s => s.id === a.student_id)?.name)
+                        .filter(Boolean) as string[];
+
+                      const defList = (selectedReportClass.homework_defaulters || [])
+                        .map(id => students.find(s => s.id === id)?.name)
+                        .filter(Boolean) as string[];
+
+                      const rowCount = Math.max(absList.length, defList.length, 8);
+                      const rows = [];
+
+                      for (let i = 0; i < rowCount; i++) {
+                        rows.push(
+                          <tr key={i} className="h-9">
+                            {/* Absentee column */}
+                            <td className="border-2 border-black p-1 text-red-600 font-bold text-center">
+                              {absList[i] || ''}
+                            </td>
+                            
+                            {/* Defaulter column */}
+                            <td className="border-2 border-black p-1 text-red-600 font-bold text-center">
+                              {defList[i] || ''}
+                            </td>
+
+                            {/* Chapter Column: spans all rows on the first iteration */}
+                            {i === 0 && (
+                              <td 
+                                rowSpan={rowCount} 
+                                className="border-2 border-black p-2 align-middle font-extrabold whitespace-normal break-words bg-white text-center text-black"
+                              >
+                                {(chapters.find(c => c.id === selectedReportClass.chapter_id)?.title || 'PRACTICE CLASS').toUpperCase()}
+                              </td>
+                            )}
+
+                            {/* HW Column: spans all rows on the first iteration */}
+                            {i === 0 && (
+                              <td 
+                                rowSpan={rowCount} 
+                                className="border-2 border-black p-2 align-top text-left whitespace-normal break-words bg-slate-100 font-medium text-black"
+                              >
+                                {selectedReportClass.homework_assigned || ''}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      }
+                      return rows;
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => copyReportText(selectedReportClass)}
+                className="flex-1 py-2 rounded-lg bg-zinc-900 border border-dark-border text-xs font-semibold text-zinc-300 hover:text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Copy className="h-4 w-4 text-brand-purple" /> Copy Report Text
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => downloadReportImage(selectedReportClass)}
+                className="flex-1 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 text-xs font-semibold text-white shadow hover:opacity-95 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Download className="h-4 w-4" /> Download Report Image
               </button>
             </div>
           </div>

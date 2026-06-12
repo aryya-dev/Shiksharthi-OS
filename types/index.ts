@@ -110,6 +110,7 @@ export interface ClassLog {
   actual_topics_covered: string[]; // array of topic ids
   homework_assigned?: string;
   remarks?: string;
+  homework_defaulters?: string[]; // array of student ids
 }
 
 export interface Attendance {

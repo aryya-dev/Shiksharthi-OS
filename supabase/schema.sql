@@ -95,16 +95,36 @@ CREATE TABLE IF NOT EXISTS lesson_plans (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 18. Faculty Members Registry (standalone, not tied to auth profiles)
+CREATE TABLE IF NOT EXISTS faculty_members (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    subjects TEXT[] NOT NULL DEFAULT '{}',
+    is_active BOOLEAN DEFAULT TRUE,
+    joining_date DATE DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Seed initial faculty data
+INSERT INTO faculty_members (name, subjects, is_active) VALUES
+  ('Aryya Sir', ARRAY['Physics', 'Chemistry'], true),
+  ('Arya Sir', ARRAY['Physics'], true),
+  ('Nilanjan Sir', ARRAY['Chemistry'], true),
+  ('Payel Ma''am', ARRAY['Biology'], true),
+  ('Pratim Sir', ARRAY['Mathematics'], true)
+ON CONFLICT DO NOTHING;
+
 -- 8. Classes (Class Log Table)
 CREATE TABLE IF NOT EXISTS classes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     class_date DATE NOT NULL DEFAULT CURRENT_DATE,
     duration_minutes INT NOT NULL DEFAULT 90,
-    faculty_id UUID REFERENCES faculty(id) ON DELETE SET NULL,
+    faculty_id UUID REFERENCES faculty_members(id) ON DELETE SET NULL,
     subject_id UUID REFERENCES subjects(id) ON DELETE CASCADE,
     chapter_id UUID REFERENCES chapters(id) ON DELETE SET NULL,
     planned_topics VARCHAR(255)[], -- references lesson_plans class_number or direct topics
     actual_topics_covered UUID[] DEFAULT '{}', -- references chapter_topics(id)
+    homework_defaulters UUID[] DEFAULT '{}',
     homework_assigned TEXT,
     remarks TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -125,7 +145,7 @@ CREATE TABLE IF NOT EXISTS attendance (
 CREATE TABLE IF NOT EXISTS doubts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     student_id UUID REFERENCES students(id) ON DELETE CASCADE,
-    faculty_id UUID REFERENCES faculty(id) ON DELETE SET NULL,
+    faculty_id UUID REFERENCES faculty_members(id) ON DELETE SET NULL,
     question TEXT NOT NULL,
     category VARCHAR(255), -- Physics, Chemistry, Math, general
     status doubt_status NOT NULL DEFAULT 'PENDING',
@@ -319,25 +339,6 @@ CREATE INDEX IF NOT EXISTS idx_student_fees_student ON student_fees(student_id);
 
 -- Add defaulter flag to student_fees
 ALTER TABLE student_fees ADD COLUMN IF NOT EXISTS is_defaulter BOOLEAN DEFAULT FALSE;
-
--- 18. Faculty Members Registry (standalone, not tied to auth profiles)
-CREATE TABLE IF NOT EXISTS faculty_members (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    subjects TEXT[] NOT NULL DEFAULT '{}',
-    is_active BOOLEAN DEFAULT TRUE,
-    joining_date DATE DEFAULT CURRENT_DATE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Seed initial faculty data
-INSERT INTO faculty_members (name, subjects, is_active) VALUES
-  ('Aryya Sir', ARRAY['Physics', 'Chemistry'], true),
-  ('Arya Sir', ARRAY['Physics'], true),
-  ('Nilanjan Sir', ARRAY['Chemistry'], true),
-  ('Payel Ma''am', ARRAY['Biology'], true),
-  ('Pratim Sir', ARRAY['Mathematics'], true)
-ON CONFLICT DO NOTHING;
 
 -- Disable Row Level Security (RLS) on all tables to ensure anonymous client inserts/updates succeed
 ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
