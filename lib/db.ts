@@ -277,8 +277,10 @@ export const dbClient = {
         if (classError) throw classError;
         
         const preparedAttendance = attendanceList.map(a => ({ ...a, class_id: newClassData.id }));
-        const { error: attError } = await supabase.from('attendance').insert(preparedAttendance);
-        if (attError) throw attError;
+        if (preparedAttendance.length > 0) {
+          const { error: attError } = await supabase.from('attendance').insert(preparedAttendance);
+          if (attError) throw attError;
+        }
         
         // Update topics as completed in database
         if (classLog.actual_topics_covered && classLog.actual_topics_covered.length > 0) {

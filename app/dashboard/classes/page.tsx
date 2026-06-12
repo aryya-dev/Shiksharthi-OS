@@ -27,6 +27,7 @@ export default function ClassLogsPage() {
   // Form values
   const [formSubjectId, setFormSubjectId] = useState('');
   const [formChapterId, setFormChapterId] = useState('');
+  const [formFacultyId, setFormFacultyId] = useState('');
   const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
   const [formDuration, setFormDuration] = useState(90);
 
@@ -89,13 +90,20 @@ export default function ClassLogsPage() {
   }, [formSubjectId, chapters]);
 
   // Pre-populate attendance state when wizard loads
-  const startLoggingFlow = () => {
+  const startLoggingFlow = async () => {
     const initialAttendance: Record<string, { status: AttendanceStatus; remarks?: string }> = {};
     students.forEach(s => {
       initialAttendance[s.id] = { status: 'PRESENT', remarks: '' };
     });
     setFormAttendance(initialAttendance);
     setFormCoveredTopics([]);
+    // Auto-assign faculty: if logged-in user is FACULTY, pin to them
+    const activeUser = await dbClient.profiles.getCurrentUser();
+    if (activeUser.role === 'FACULTY') {
+      setFormFacultyId(activeUser.id);
+    } else {
+      setFormFacultyId(faculty[0]?.id || '');
+    }
     setWizardStep(1);
     setIsLogging(true);
   };
@@ -122,13 +130,12 @@ export default function ClassLogsPage() {
 
   const handleSaveClassLog = async () => {
     try {
-      const activeUser = await dbClient.profiles.getCurrentUser();
       const payloadLog = {
         class_date: formDate,
         duration_minutes: Number(formDuration),
-        faculty_id: activeUser.role === 'FACULTY' ? activeUser.id : faculty[0]?.id || '',
-        subject_id: formSubjectId,
-        chapter_id: formChapterId,
+        faculty_id: formFacultyId || null,
+        subject_id: formSubjectId || null,
+        chapter_id: formChapterId || null,
         planned_topics: formCoveredTopics.map(tId => topics.find(t => t.id === tId)?.name || ''),
         actual_topics_covered: formCoveredTopics,
         homework_assigned: formHomework,
@@ -321,6 +328,19 @@ export default function ClassLogsPage() {
               {/* STEP 1: Basic details */}
               {wizardStep === 1 && (
                 <div className="space-y-4">
+                  {/* Faculty Assignment */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Assign Teacher</label>
+                    <select 
+                      className="w-full bg-zinc-900 border border-dark-border text-xs rounded-lg p-2.5 text-white"
+                      value={formFacultyId}
+                      onChange={e => setFormFacultyId(e.target.value)}
+                    >
+                      {faculty.length === 0 && <option value="">No faculty configured</option>}
+                      {faculty.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                    </select>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[10px] text-zinc-400 font-semibold uppercase">Subject</label>
@@ -374,8 +394,6 @@ export default function ClassLogsPage() {
                       onChange={e => setFormDuration(Number(e.target.value))}
                     />
                   </div>
-
-
                 </div>
               )}
 
