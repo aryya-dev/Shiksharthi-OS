@@ -93,9 +93,9 @@ export interface ClassLog {
   id: string;
   class_date: string;
   duration_minutes: number;
-  faculty_id: string;
-  subject_id: string;
-  chapter_id: string;
+  faculty_id: string | null;
+  subject_id: string | null;
+  chapter_id: string | null;
   planned_topics: string[];
   actual_topics_covered: string[]; // array of topic ids
   homework_assigned?: string;
