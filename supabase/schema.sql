@@ -317,6 +317,28 @@ CREATE TRIGGER on_student_updated
 -- Indexes for student_fees
 CREATE INDEX IF NOT EXISTS idx_student_fees_student ON student_fees(student_id);
 
+-- Add defaulter flag to student_fees
+ALTER TABLE student_fees ADD COLUMN IF NOT EXISTS is_defaulter BOOLEAN DEFAULT FALSE;
+
+-- 18. Faculty Members Registry (standalone, not tied to auth profiles)
+CREATE TABLE IF NOT EXISTS faculty_members (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    subjects TEXT[] NOT NULL DEFAULT '{}',
+    is_active BOOLEAN DEFAULT TRUE,
+    joining_date DATE DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Seed initial faculty data
+INSERT INTO faculty_members (name, subjects, is_active) VALUES
+  ('Aryya Sir', ARRAY['Physics', 'Chemistry'], true),
+  ('Arya Sir', ARRAY['Physics'], true),
+  ('Nilanjan Sir', ARRAY['Chemistry'], true),
+  ('Payel Ma''am', ARRAY['Biology'], true),
+  ('Pratim Sir', ARRAY['Mathematics'], true)
+ON CONFLICT DO NOTHING;
+
 -- Disable Row Level Security (RLS) on all tables to ensure anonymous client inserts/updates succeed
 ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE faculty DISABLE ROW LEVEL SECURITY;
@@ -335,6 +357,7 @@ ALTER TABLE exam_results DISABLE ROW LEVEL SECURITY;
 ALTER TABLE parent_interactions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications DISABLE ROW LEVEL SECURITY;
 ALTER TABLE student_fees DISABLE ROW LEVEL SECURITY;
+ALTER TABLE faculty_members DISABLE ROW LEVEL SECURITY;
 
 -- Grant API access permissions on public schema to standard Supabase roles
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;

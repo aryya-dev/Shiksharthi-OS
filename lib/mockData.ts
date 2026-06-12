@@ -2,7 +2,7 @@ import {
   Student, Faculty, Subject, Chapter, ChapterTopic, 
   LessonPlan, ClassLog, Attendance, Doubt, Feedback, 
   Exam, ExamResult, ParentInteraction, UserProfile,
-  StudentFee
+  StudentFee, FacultyMember
 } from '../types';
 
 // Initial Profiles
@@ -397,17 +397,27 @@ export const mockExamResults: ExamResult[] = [
 
 // Student Fees
 export const mockStudentFees: StudentFee[] = [
-  { id: 'fee_01', student_id: 'stud_01', total_amount: 28000, scholarship_discount: 14000, amount_paid: 10000 },
-  { id: 'fee_02', student_id: 'stud_02', total_amount: 28000, scholarship_discount: 0, amount_paid: 28000 },
-  { id: 'fee_03', student_id: 'stud_03', total_amount: 28000, scholarship_discount: 7000, amount_paid: 15000 },
-  { id: 'fee_04', student_id: 'stud_04', total_amount: 28000, scholarship_discount: 0, amount_paid: 0 },
-  { id: 'fee_05', student_id: 'stud_05', total_amount: 28000, scholarship_discount: 28000, amount_paid: 0 },
-  { id: 'fee_06', student_id: 'stud_06', total_amount: 28000, scholarship_discount: 0, amount_paid: 14000 }
+  { id: 'fee_01', student_id: 'stud_01', total_amount: 28000, scholarship_discount: 14000, amount_paid: 10000, is_defaulter: false },
+  { id: 'fee_02', student_id: 'stud_02', total_amount: 28000, scholarship_discount: 0, amount_paid: 28000, is_defaulter: false },
+  { id: 'fee_03', student_id: 'stud_03', total_amount: 28000, scholarship_discount: 7000, amount_paid: 15000, is_defaulter: false },
+  { id: 'fee_04', student_id: 'stud_04', total_amount: 28000, scholarship_discount: 0, amount_paid: 0, is_defaulter: false },
+  { id: 'fee_05', student_id: 'stud_05', total_amount: 28000, scholarship_discount: 28000, amount_paid: 0, is_defaulter: false },
+  { id: 'fee_06', student_id: 'stud_06', total_amount: 28000, scholarship_discount: 0, amount_paid: 14000, is_defaulter: false }
+];
+
+// Faculty Members Registry (standalone, not tied to auth)
+export const mockFacultyMembers: FacultyMember[] = [
+  { id: 'fm_01', name: 'Aryya Sir', subjects: ['Physics', 'Chemistry'], is_active: true, joining_date: '2026-04-01' },
+  { id: 'fm_02', name: 'Arya Sir', subjects: ['Physics'], is_active: true, joining_date: '2026-04-01' },
+  { id: 'fm_03', name: 'Nilanjan Sir', subjects: ['Chemistry'], is_active: true, joining_date: '2026-04-01' },
+  { id: 'fm_04', name: 'Payel Ma\'am', subjects: ['Biology'], is_active: true, joining_date: '2026-04-01' },
+  { id: 'fm_05', name: 'Pratim Sir', subjects: ['Mathematics'], is_active: true, joining_date: '2026-04-01' }
 ];
 
 export interface LocalDBState {
   profiles: UserProfile[];
   faculty: Faculty[];
+  facultyMembers: FacultyMember[];
   subjects: Subject[];
   chapters: Chapter[];
   chapterTopics: ChapterTopic[];
@@ -429,6 +439,7 @@ export const getLocalDB = (): LocalDBState => {
     return {
       profiles: mockProfiles,
       faculty: mockFaculty,
+      facultyMembers: mockFacultyMembers,
       subjects: mockSubjects,
       chapters: mockChapters,
       chapterTopics: mockChapterTopics,
@@ -453,6 +464,7 @@ export const getLocalDB = (): LocalDBState => {
   return {
     profiles: load('profiles', mockProfiles),
     faculty: load('faculty', mockFaculty),
+    facultyMembers: load('facultyMembers', mockFacultyMembers),
     subjects: load('subjects', mockSubjects),
     chapters: load('chapters', mockChapters),
     chapterTopics: load('chapterTopics', mockChapterTopics),

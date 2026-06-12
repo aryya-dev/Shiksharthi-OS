@@ -6,13 +6,13 @@ import {
   PlayCircle, AlertCircle, Save, X, Search 
 } from 'lucide-react';
 import { dbClient } from '@/lib/db';
-import { Doubt, Student, Faculty, UserProfile, DoubtStatus } from '@/types';
+import { Doubt, Student, FacultyMember, UserProfile, DoubtStatus } from '@/types';
 
 export default function DoubtTrackerPage() {
   const [loading, setLoading] = useState(true);
   const [doubts, setDoubts] = useState<Doubt[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  const [faculty, setFaculty] = useState<Faculty[]>([]);
+  const [faculty, setFaculty] = useState<FacultyMember[]>([]);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
 
   // Filters
@@ -42,7 +42,7 @@ export default function DoubtTrackerPage() {
       const studs = await dbClient.students.list();
       setStudents(studs);
 
-      const facs = await dbClient.faculty.list();
+      const facs = await dbClient.facultyMembers.list();
       setFaculty(facs);
 
       if (studs.length > 0) setNewDoubtStudent(studs[0].id);

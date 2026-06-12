@@ -4,7 +4,7 @@ import {
   Student, Faculty, Subject, Chapter, ChapterTopic, 
   LessonPlan, ClassLog, Attendance, Doubt, Feedback, 
   Exam, ExamResult, ParentInteraction, UserProfile, UserRole,
-  AttendanceStatus, DoubtStatus, StudentFee
+  AttendanceStatus, DoubtStatus, StudentFee, FacultyMember
 } from '../types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -144,10 +144,72 @@ export const dbClient = {
   faculty: {
     list: async (): Promise<Faculty[]> => {
       if (isSupabaseConfigured && supabase) {
-        const { data } = await supabase.from('faculty').select('*');
-        return data || [];
+        // Join with profiles to get name, email, phone
+        const { data } = await supabase
+          .from('faculty')
+          .select('id, specialization, joining_date, is_active, created_at, updated_at, profiles(name, email, phone)');
+        if (data) {
+          return data.map((row: any) => ({
+            id: row.id,
+            name: row.profiles?.name || 'Unknown',
+            email: row.profiles?.email || '',
+            phone: row.profiles?.phone || '',
+            specialization: row.specialization || [],
+            joining_date: row.joining_date,
+            is_active: row.is_active
+          }));
+        }
+        return [];
       }
       return getLocalDB().faculty;
+    }
+  },
+
+  facultyMembers: {
+    list: async (): Promise<FacultyMember[]> => {
+      if (isSupabaseConfigured && supabase) {
+        const { data } = await supabase.from('faculty_members').select('*').order('name');
+        return data || [];
+      }
+      return getLocalDB().facultyMembers || [];
+    },
+    create: async (member: Omit<FacultyMember, 'id'>): Promise<FacultyMember> => {
+      const newMember = { ...member, id: `fm_${Date.now()}` } as FacultyMember;
+      if (isSupabaseConfigured && supabase) {
+        const { data, error } = await supabase.from('faculty_members').insert([member]).select().single();
+        if (error) throw error;
+        return data;
+      }
+      const db = getLocalDB();
+      if (!db.facultyMembers) db.facultyMembers = [];
+      db.facultyMembers.push(newMember);
+      saveLocalDB(db);
+      return newMember;
+    },
+    update: async (id: string, updates: Partial<FacultyMember>): Promise<FacultyMember> => {
+      if (isSupabaseConfigured && supabase) {
+        const { data, error } = await supabase.from('faculty_members').update(updates).eq('id', id).select().single();
+        if (error) throw error;
+        return data;
+      }
+      const db = getLocalDB();
+      if (!db.facultyMembers) db.facultyMembers = [];
+      const index = db.facultyMembers.findIndex(f => f.id === id);
+      if (index === -1) throw new Error('Faculty member not found');
+      db.facultyMembers[index] = { ...db.facultyMembers[index], ...updates };
+      saveLocalDB(db);
+      return db.facultyMembers[index];
+    },
+    delete: async (id: string): Promise<void> => {
+      if (isSupabaseConfigured && supabase) {
+        const { error } = await supabase.from('faculty_members').delete().eq('id', id);
+        if (error) throw error;
+        return;
+      }
+      const db = getLocalDB();
+      if (!db.facultyMembers) db.facultyMembers = [];
+      db.facultyMembers = db.facultyMembers.filter(f => f.id !== id);
+      saveLocalDB(db);
     }
   },
 

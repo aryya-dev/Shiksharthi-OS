@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { dbClient } from '@/lib/db';
 import { 
-  ClassLog, Student, Subject, Chapter, ChapterTopic, Faculty, Attendance, AttendanceStatus 
+  ClassLog, Student, Subject, Chapter, ChapterTopic, FacultyMember, Attendance, AttendanceStatus 
 } from '@/types';
 
 export default function ClassLogsPage() {
@@ -17,7 +17,7 @@ export default function ClassLogsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [topics, setTopics] = useState<ChapterTopic[]>([]);
-  const [faculty, setFaculty] = useState<Faculty[]>([]);
+  const [faculty, setFaculty] = useState<FacultyMember[]>([]);
   const [attendanceLogs, setAttendanceLogs] = useState<Attendance[]>([]);
 
   // Logging wizard state
@@ -48,7 +48,7 @@ export default function ClassLogsPage() {
       const subs = await dbClient.subjects.list();
       setSubjects(subs);
 
-      const fac = await dbClient.faculty.list();
+      const fac = await dbClient.facultyMembers.list();
       setFaculty(fac);
 
       const tops = await dbClient.chapterTopics.list();

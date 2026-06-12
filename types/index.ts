@@ -47,8 +47,18 @@ export interface StudentFee {
   total_amount: number;
   scholarship_discount: number;
   amount_paid: number;
+  is_defaulter?: boolean;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface FacultyMember {
+  id: string;
+  name: string;
+  subjects: string[];
+  is_active: boolean;
+  joining_date?: string;
+  created_at?: string;
 }
 
 export interface Chapter {

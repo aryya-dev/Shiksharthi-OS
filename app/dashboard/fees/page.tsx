@@ -17,7 +17,7 @@ export default function FeesTrackerPage() {
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState<StudentFeeRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'PARTIAL' | 'UNPAID'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'PARTIAL' | 'UNPAID' | 'DEFAULTER'>('ALL');
   
   // Modal states
   const [isLoggingPayment, setIsLoggingPayment] = useState(false);
@@ -133,6 +133,18 @@ export default function FeesTrackerPage() {
     }
   };
 
+  const handleToggleDefaulter = async (record: StudentFeeRecord) => {
+    try {
+      await dbClient.studentFees.update(record.student.id, {
+        is_defaulter: !record.fee.is_defaulter
+      });
+      await loadFeesData();
+    } catch (error) {
+      console.error('Failed to toggle defaulter status:', error);
+      alert('Failed to update defaulter status.');
+    }
+  };
+
   // Calculations for Summary Statistics
   const summary = records.reduce((acc, rec) => {
     const net = rec.fee.total_amount - rec.fee.scholarship_discount;
@@ -166,6 +178,8 @@ export default function FeesTrackerPage() {
       matchesStatus = isPartial;
     } else if (statusFilter === 'UNPAID') {
       matchesStatus = isUnpaid;
+    } else if (statusFilter === 'DEFAULTER') {
+      matchesStatus = !!rec.fee.is_defaulter;
     }
     
     return matchesSearch && matchesStatus;
@@ -250,8 +264,8 @@ export default function FeesTrackerPage() {
             onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
-          {(['ALL', 'PAID', 'PARTIAL', 'UNPAID'] as const).map(filter => (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {(['ALL', 'PAID', 'PARTIAL', 'UNPAID', 'DEFAULTER'] as const).map(filter => (
             <button
               key={filter}
               onClick={() => setStatusFilter(filter)}
@@ -261,7 +275,7 @@ export default function FeesTrackerPage() {
                   : 'bg-zinc-900 text-zinc-400 border-dark-border/60 hover:text-white'
               }`}
             >
-              {filter === 'PARTIAL' ? 'Partially Paid' : filter === 'PAID' ? 'Fully Paid' : filter}
+              {filter === 'PARTIAL' ? 'Partially Paid' : filter === 'PAID' ? 'Fully Paid' : filter === 'DEFAULTER' ? 'Defaulters' : filter}
             </button>
           ))}
         </div>
@@ -315,7 +329,14 @@ export default function FeesTrackerPage() {
                 }
 
                 return (
-                  <tr key={rec.student.id} className="hover:bg-zinc-900/40 transition-all-200">
+                  <tr 
+                    key={rec.student.id} 
+                    className={`transition-all-200 border-b border-dark-border/20 ${
+                      rec.fee.is_defaulter 
+                        ? 'bg-red-500/5 hover:bg-red-500/10 border-l-2 border-l-neon-rose' 
+                        : 'hover:bg-zinc-900/40'
+                    }`}
+                  >
                     <td className="p-3">
                       <div className="font-semibold text-white">{rec.student.name}</div>
                       <div className="text-[10px] text-zinc-500">Parent: {rec.student.parent_name}</div>
@@ -337,9 +358,28 @@ export default function FeesTrackerPage() {
                         <span className="text-neon-emerald">₹0</span>
                       )}
                     </td>
-                    <td className="p-3">{statusBadge}</td>
+                    <td className="p-3">
+                      <div className="flex flex-col gap-1.5 items-start">
+                        {statusBadge}
+                        {rec.fee.is_defaulter && (
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border text-neon-rose bg-neon-rose/5 border-neon-rose/20 shadow-[0_0_8px_rgba(244,63,94,0.2)] animate-pulse">
+                            Defaulter
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-3 text-right">
                       <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={() => handleToggleDefaulter(rec)}
+                          className={`px-2 py-1 rounded border text-[10px] font-semibold transition-all-200 ${
+                            rec.fee.is_defaulter
+                              ? 'bg-red-950/40 text-neon-rose border-neon-rose/30 hover:bg-red-950/60'
+                              : 'bg-zinc-900 border-dark-border text-zinc-400 hover:text-zinc-300 hover:border-zinc-700'
+                          }`}
+                        >
+                          {rec.fee.is_defaulter ? 'Clear Defaulter' : 'Mark Defaulter'}
+                        </button>
                         <button
                           onClick={() => {
                             setSelectedRecord(rec);

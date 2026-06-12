@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { dbClient } from '@/lib/db';
 import { 
-  Subject, Chapter, ChapterTopic, ClassLog, Faculty, UserProfile 
+  Subject, Chapter, ChapterTopic, ClassLog, FacultyMember, UserProfile 
 } from '@/types';
 
 export default function AcademicPlanner() {
@@ -18,7 +18,7 @@ export default function AcademicPlanner() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [topics, setTopics] = useState<ChapterTopic[]>([]);
   const [classes, setClasses] = useState<ClassLog[]>([]);
-  const [faculty, setFaculty] = useState<Faculty[]>([]);
+  const [faculty, setFaculty] = useState<FacultyMember[]>([]);
   const [updatingTopicId, setUpdatingTopicId] = useState<string | null>(null);
 
   const loadPlannerData = async () => {
@@ -36,7 +36,7 @@ export default function AcademicPlanner() {
       const cl = await dbClient.classes.list();
       setClasses(cl);
 
-      const fac = await dbClient.faculty.list();
+      const fac = await dbClient.facultyMembers.list();
       setFaculty(fac);
 
       if (selectedSubjectId || subs.length > 0) {
@@ -301,7 +301,7 @@ export default function AcademicPlanner() {
                     <div className="space-y-1">
                       <div className="text-xs font-semibold text-white">{perf.faculty.name}</div>
                       <div className="text-[10px] text-zinc-400">
-                        Assigned Specialization: {perf.faculty.specialization.join(', ')}
+                        Assigned Subjects: {perf.faculty.subjects?.join(', ') || 'None'}
                       </div>
                     </div>
                     
